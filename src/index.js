@@ -10,6 +10,7 @@ import { startScheduler } from './services/scheduler.js';
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT ;
+
 // Middlewares
 app.use(cors());
 app.use(express.json());

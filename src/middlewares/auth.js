@@ -13,7 +13,7 @@ export function verifyToken(req, res, next) {
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ error: 'Invalid/Expired token' });
-    req.user = user; // user object will have user.id, user.username
+    req.user = user; 
     next();
   });
 }

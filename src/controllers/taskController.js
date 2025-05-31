@@ -1,26 +1,21 @@
 import db from '../db.js';
 import { body, validationResult } from 'express-validator';
 
-// Utility: Check if valid ISO timestamp
 function isValidDate(dateString) {
   return !isNaN(Date.parse(dateString));
 }
 
-// 1) CREATE Task
 export const createTask = [
-  // Validation
   body('type')
     .notEmpty()
     .isIn(['simple', 'custom'])
     .withMessage('Type must be either "simple" or "custom"'),
 
-  // For 'simple' type, validate `textInput`
   body('textInput')
     .if(body('type').equals('simple'))
     .notEmpty()
     .withMessage('textInput is required for simple type'),
 
-  // For 'custom' type, validate title, deadline; start_time optional
   body('title')
     .if(body('type').equals('custom'))
     .notEmpty()
@@ -30,7 +25,6 @@ export const createTask = [
     .custom(isValidDate)
     .withMessage('Valid deadline required (ISO format)'),
 
-  // Optional start_time for 'custom'
   body('start_time')
     .optional()
     .custom(isValidDate)
@@ -48,34 +42,21 @@ export const createTask = [
       if (req.body.type === 'simple') {
         const { textInput } = req.body;
         const generated = await generateTaskFromText(textInput);
-        console.log('Generated task from text:', generated);
         title = generated.title;
         description = generated.description;
         start_time = generated.start_time || null;
         deadline = generated.deadline;
-        // If generateTaskFromText did not provide a start_time, mark as Ongoing
         status = start_time ? 'Upcoming Task' : 'Ongoing Task';
       } else {
-        // 2) CUSTOM flow: take fields directly from req.body
         ({ title, description = null, start_time = null, deadline } = req.body);
-
-        // If no start_time provided, mark as Ongoing; else Upcoming
         status = start_time ? 'Upcoming Task' : 'Ongoing Task';
       }
 
-      // Insert into DB
       const result = await db.query(
         `INSERT INTO tasks (user_id, title, description, start_time, deadline, status)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, title, description, start_time, deadline, status, created_at, updated_at`,
-        [
-          userId,
-          title,
-          description,
-          start_time,
-          deadline,
-          status
-        ]
+        [userId, title, description, start_time, deadline, status]
       );
 
       res.status(201).json({ task: result.rows[0] });
@@ -85,13 +66,7 @@ export const createTask = [
   },
 ];
 
-/**
- * Placeholder async function for processing `textInput` in the "simple" flow.
- * Replace its body with your actual implementation.
- * Should return at least: { title, description, start_time?, deadline }.
- */
 async function generateTaskFromText(text) {
-  // Example stub: use `text` as title, no description, no start_time, set deadline 24hrs later
   const now = new Date();
   return {
     title: text,
@@ -101,8 +76,6 @@ async function generateTaskFromText(text) {
   };
 }
 
-
-// 2) GET ALL Tasks (optionally filter by status)
 export const getAllTasks = async (req, res, next) => {
   const userId = req.user.id;
   const { status } = req.query;
@@ -125,7 +98,6 @@ export const getAllTasks = async (req, res, next) => {
   }
 };
 
-// 3) GET SINGLE Task by ID
 export const getTaskById = async (req, res, next) => {
   const userId = req.user.id;
   const taskId = req.params.id;
@@ -144,9 +116,7 @@ export const getTaskById = async (req, res, next) => {
   }
 };
 
-// 4) UPDATE Task (title, desc, start_time, deadline)
 export const updateTask = [
-  // Validation
   body('title').optional().notEmpty().withMessage('Title cannot be empty'),
   body('start_time')
     .optional()
@@ -171,7 +141,6 @@ export const updateTask = [
     const { title, description, start_time, deadline, status } = req.body;
 
     try {
-      // पहले चेक करें कि यह task उसी user की है
       const existing = await db.query(
         `SELECT * FROM tasks WHERE id = $1 AND user_id = $2`,
         [taskId, userId]
@@ -179,7 +148,6 @@ export const updateTask = [
       if (existing.rows.length === 0)
         return res.status(404).json({ error: 'Task not found' });
 
-      // Dynamically UPDATE only provided fields
       const fields = [];
       const params = [];
       let idx = 1;
@@ -204,7 +172,6 @@ export const updateTask = [
         fields.push(`status = $${idx++}`);
         params.push(status);
       }
-      // always update updated_at
       fields.push(`updated_at = NOW()`);
 
       const setClause = fields.join(', ');
@@ -225,7 +192,6 @@ export const updateTask = [
   },
 ];
 
-// 5) DELETE Task
 export const deleteTask = async (req, res, next) => {
   const userId = req.user.id;
   const taskId = req.params.id;
@@ -244,7 +210,6 @@ export const deleteTask = async (req, res, next) => {
   }
 };
 
-// 6) PATCH Task Status (Manually Mark Complete/Incomplete)
 export const updateTaskStatus = [
   body('status')
     .notEmpty()
