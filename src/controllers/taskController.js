@@ -204,7 +204,7 @@ export const deleteTask = async (req, res, next) => {
     if (result.rows.length === 0)
       return res.status(404).json({ error: 'Task not found or already deleted' });
 
-    res.json({ message: 'Task deleted' });
+    res.json({ id: taskId, message: 'Task deleted' });
   } catch (err) {
     next(err);
   }
